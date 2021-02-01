@@ -16,8 +16,10 @@ const users = require('./routes/users');
 const https = require('https');
 //https鍵読み込み
 const options = {
-  key: fs.readFileSync(process.env.HTTPSKEY_PATH + 'privkey.pem'),
-  cert: fs.readFileSync(process.env.HTTPSKEY_PATH + 'cert.pem')
+  key: fs.readFileSync(process.env.HOME + '/keys/' + 'privkey.pem'),
+  cert: fs.readFileSync(process.env.HOME + '/keys/' + 'cert.pem')
+  //key: fs.readFileSync(process.env.HTTPSKEY_PATH + 'privkey.pem'),
+  //cert: fs.readFileSync(process.env.HTTPSKEY_PATH + 'cert.pem')
 }
 const os = require('os');
 
@@ -58,11 +60,15 @@ let io = require('socket.io').listen(server);
 
 console.log("server start")
 
+let clientList = {}
+let freqList = {}
+
 
 io.sockets.on('connection',(socket)=>{
   socket.on("disconnect", (socket) =>{
     if(String(socket.id) in clientsList){
       delete clientsList[String(socket.id)]
+      delete freqList[String(socket.id)]
       console.log("disconnect")
       console.log(Object.keys(io.sockets.adapter.rooms))
     }
@@ -70,18 +76,20 @@ io.sockets.on('connection',(socket)=>{
 
   socket.on("initFromClient", (data) => {
     clientsList[String(socket.id)] = {
-      difference: 0,
       getUserMedia: false 
     }
-    if(data.getUserMedia != undefined) {
-      if(data.getUserMedia) {
+    freqList[String(socket.id)] = {
+      freq: 440 
+    }
+    if(data != undefined) {
+      if(data) {
         socket.join("getUserMedia")
         console.log("getUserMedia join")
       } else {
         socket.join("notUserMedia")
         console.log("notUserMedia join")
       }
-      clientsList[String(socket.id)].getUserMedia = data.getUserMedia
+      clientsList[String(socket.id)].getUserMedia = data
     }
     
     //if(data.difference != undefined) clientsList[String(socket.id)].difference = data.difference
@@ -97,9 +105,14 @@ io.sockets.on('connection',(socket)=>{
     console.log("init " + String(socket.id))
     //console.log(Object.keys(clientsList))
   })
+  socket.on("freqFromServer", (data) => {
+    console.log(data)
+    freqList[String(socket.id)] = {freq: data.freq}
+    io.to("listner").emit("freqFromServer", freqList)
+  })
 
-  socket.on("instructionFromCtrl", (data) => {
-    io.emit("instructionFromServer", data)
+  socket.on("textFromClient", (data) => {
+    io.emit("textFromServer", data)
   })
 /*
   socket.on("freqFromClient", (data) => {
@@ -114,26 +127,9 @@ io.sockets.on('connection',(socket)=>{
   socket.on("readyFromClient", (data) => {
     console.log(data)
     switch(data) {
-      case "TRADE":
-        let targetArr = Object.keys(clientsList)
-        targetArr.push(targetArr.shift())
-        Object.keys(clientsList).forEach((element,index) => {
-          clientsList[element].target = targetArr[index]
-        })
-        console.log(clientsList)
-        for(let id in io.sockets.adapter.rooms){
-          for(let key in clientsList){
-            if(String(id) === key) {
-              socket.to(id).emit("targetSendFromServer", {
-                target: clientsList[key].target
-              })
-            }
-          }
-        }
-        break;
-      case "recordEnd": //later
+      /*case "recordEnd": //later
         console.log("record end " + String(socket.id))
-      break;
+      break;*/
       case "RECORD":
         io.emit("recReqFromServer")
         break;
@@ -142,16 +138,16 @@ io.sockets.on('connection',(socket)=>{
         break;
       case "CTRL":
         socket.join("ctrl")
-        socket.emit('infoFromServer',clientsList)
+        socket.emit('infoFromServer',freqList)
         break;
     }
   })
 
   socket.on("chunkFromClient", (data) => {
-      clientBuffer.push(data)
+    clientBuffer.push(data)
     console.log("chunk from:" + String(socket.id) + " " + String(clientBuffer.length))
   })
-  i = 0
+  //i = 0
   socket.on("reqFromClient", (data) => {
     /*
     if(data === "CLIENT") {
