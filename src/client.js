@@ -12,6 +12,8 @@ let initHsh = {}
 let freqVal = 440
 let tradeFlag =false
 let javascriptnode
+//let playsampleRate = 96000
+//let playTarget = ""
 
 
 
@@ -32,7 +34,8 @@ const recordEmit = () =>{
   videoMode.mode = "record"
   //modules.erasePrint(ctx, canvas)
   modules.textPrint(ctx, canvas, "撮影してます")
-  setTimeout(()=>{
+  //setTimeout(()=>{
+    socket.emit('chunkFromClient', {"video":toBase64(buffer, video), "target": "CLIENT", "freq": freqVal})
     videoMode.mode = "none"
     modules.erasePrint(ctx, canvas)
     modules.textPrint(ctx, canvas, "撮影終わり")
@@ -40,7 +43,8 @@ const recordEmit = () =>{
     document.getElementById("video").style.display="none";
     video.muted = true
     //video.muted = "muted"
-  },2000)
+  //},2000)
+  
 }
 
 //canvas
@@ -80,17 +84,6 @@ socket.on("targetSendFromServer", (data) => {
   initHsh.target = data.target
   tradeFlag = !tradeFlag
 })
-/*
-socket.on('freqFromClient',(data) =>{
-  originalCoodinate = data.coodinate
-  osc.frequency.setValueAtTime(data.freq, 0);
-})
-socket.on('freqFromServer',(data) =>{
-  let currentTime = audioContext.currentTime;
-  osc.frequency.setTargetAtTime(data,currentTime,500);
-  console.log(data)
-})
-*/
 
 socket.on('recReqFromServer',()=>{
   if(initHsh.getUserMedia) {
@@ -115,8 +108,6 @@ socket.on('playReqFromServer', (data) => {
   },1000 + (Math.random() * 1000))
 })
 
-let playsampleRate = 96000
-let playTarget = ""
 socket.on('chunkFromServer', (data) => {
   if(videoMode.mode != "record"){
     modules.erasePrint(ctx, canvas);
@@ -168,7 +159,7 @@ const playVideo = (video) => {
   receive_ctx.drawImage(image, 0, 0, wdth, hght);
   }
 }
-const funcToBase64 = (buffer, video) =>{
+const toBase64 = (buffer, video) =>{
   let bufferContext = buffer.getContext('2d');
   modules.textPrint(ctx,canvas,Object.keys(video).join(","))
   buffer.width = video.videoWidth;
@@ -179,7 +170,7 @@ const funcToBase64 = (buffer, video) =>{
 
 const onAudioProcess = (e) => {
   if(videoMode.mode === "record"){
-    socket.emit('chunkFromClient', {"video":funcToBase64(buffer, video), "target": "CLIENT", "freq": freqVal})
+    //socket.emit('chunkFromClient', {"video":toBase64(buffer, video), "target": "CLIENT", "freq": freqVal})
   }
 }
 //video record/play ここまで
@@ -194,7 +185,7 @@ let mediaDevices = navigator.mediaDevices || ((navigator.mozGetUserMedia || navi
   }
 } : null);
 
-let initFlag = 0
+let initFlag = true
 
 let gps;
 const getGPS = () =>{
@@ -253,8 +244,8 @@ const emitGPS = () => {
 */
 
 const initialize = () =>{
-  if(initFlag === 0) { 
-    initFlag++
+  if(initFlag) { 
+    initFlag = false
     audioContext = new AudioContext();
     //masterGain = audioContext.createGain();
 
@@ -350,7 +341,7 @@ const initialize = () =>{
     receive_ctx = receive.getContext("2d");
     let timelapseFlag = true
     modules.erasePrint(ctx,canvas)
-    if(navigator.geolocation){
+    if(!navigator.geolocation){
       /*
       navigator.geolocation.getCurrentPosition((position)=>{
         modules.erasePrint(ctx,canvas)
@@ -363,17 +354,19 @@ const initialize = () =>{
         socket.emit('initFromClient',initHsh)
       })
       */
-    } else {
+    //} else {
       modules.erasePrint(ctx,canvas)
       modules.textPrint(ctx,canvas,"GPSの情報がとれませんでした。すみません、周りの音を聴いて楽しんでください")
     }
-  } else if(initFlag === 1){
-    initFlag++
     let currentTime = audioContext.currentTime;
     oscGain.gain.setTargetAtTime(1,currentTime,3);
-    modules.erasePrint(ctx,canvas)
     getGPS()
-  } else if(initFlag > 1 && videoMode.mode === "wait") {
+    /*
+  } else if(initFlag === 1){
+    initFlag++
+    modules.erasePrint(ctx,canvas)
+    */
+  } else if(!initFlag && videoMode.mode === "wait") {
     modules.erasePrint(ctx,canvas)
     recordEmit()
   }
@@ -386,4 +379,4 @@ window.addEventListener('resize', (e) =>{
   console.log('resizing')
   sizing()
 })
-modules.textPrint(ctx,canvas,"GPS、カメラを使います。問題なければ画面をタップかクリックしてください。")
+modules.textPrint(ctx,canvas,"GPS、カメラを使います。あと音が出ます。問題なければ画面をタップかクリックしてください。")

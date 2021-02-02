@@ -20,19 +20,6 @@ let initHsh = {}
 let freqVal = 440
 
 //let originalCoodinate = {x:0,y:0}
-let message = { //later
-  explain:{
-    init: "click",
-    next: "演奏を始めます。米子くんは画面をタップして次の人に場所を譲ってください。それ以外の人は米子くんの立っていた場所に順番に同じよう立って、タップして次の人に場所を譲ってください",
-    recordReady: "",
-    recording: "CAPTURE",
-    recordEnd: ""
-  },
-  err:{
-    getUserMedia:"カメラ、マイクが機能しないようです。それ以外の機能で演奏に参加してください。再度画面をタップすると音が出ます",
-    gps:"GPSが機能しないようです。ブラウザを閉じてください"
-  }
-} //later
 
 let timelapseFlag = false;
 //video record/play ここから
@@ -64,8 +51,6 @@ const recordEmit = () =>{
 const sizing=() =>{
   document.getElementById("cnvs").setAttribute("height", String(window.innerHeight - 400) + "px")
   document.getElementById("cnvs").setAttribute("width", String(window.innerWidth) + "px")
-  document.getElementById("canvas").setAttribute("height", String(window.innerHeight - 400) + "px")
-  document.getElementById("canvas").setAttribute("width", String(window.innerWidth) + "px")
 }
 
 sizing();
@@ -90,7 +75,6 @@ const renderStart=()=> {
 // socket
 socket.emit('readyFromClient', "CTRL");
 
-
 socket.on('infoFromServer',(data) =>{
   let list = ""
   for(let key in data) {
@@ -111,119 +95,11 @@ socket.on('playReqFromServer', () => {
   modules.erasePrint(ctx,canvas)
   modules.textPrint(ctx, canvas, message.explain.playReady)
 })
-    /*
-socket.on('stringsFromServer', (data) =>{
-  //modules.erasePrint(ctx, canvas)
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  stringsClient = data
-  modules.textPrint(ctx,canvas, stringsClient)
-});
-socket.on('erasePrintFromServer',() =>{
-  //ctx.clearRect(0, 0, canvas.width, canvas.height);
-  modules.erasePrint(ctx,canvas)
-  modules.whitePrint(ctx,canvas)
-});
-
-socket.on('statusViewFromServer', ()=>{
-  let statusText = modules.statusPrint(oscGain.gain.value, freqVal, feedbackGain.gain.value, noiseGain.gain.value, bassFlag);
-  strings = "";
-  stringsClient = "";
-  modules.erasePrint(ctx, canvas);
-  modules.textPrint(ctx, canvas, statusText);
-  setTimeout(()=>{
-    modules.erasePrint(ctx, canvas);
-  },500)
-});
-
-socket.on('statusFromServer', (data)=>{
-  if(videoMode.option === "loop"){
-    playsampleRate = Number(data.sampleRate[playTarget])
-  } else if(videoMode.mode === "pastPlay") {
-    bufferRate = Number(data.sampleRate.SECBEFORE)
-  }
-})
-
-socket.on('cmdFromServer', (data) => {
-  if(standAlone === false){
-    if(data.target === undefined || data.target === String(socket.id)){
-      doCmd(data);
-    } else {
-      modules.erasePrint(ctx, canvas);
-      modules.textPrint(ctx, canvas, data.cmd);
-      setTimeout(() =>{
-        modules.erasePrint(ctx, canvas);
-      },1000)
-    }
-  }
-});
 socket.on('textFromServer', (data) => {
-  if(data.alert) {
-    const previousStatus = {masterGain: masterGain.gain.value, videoMode: videoMode.mode, videoOption: videoMode.option}
-    masterGain.gain.setValueAtTime(0,0)
-    videoStop()
-    setTimeout(()=>{
-      alertPlay()
-    },100)
-    setTimeout(() => {
-      masterGain.gain.setValueAtTime(previousStatus.masterGain,0)
-      videoMode.mode = previousStatus.videoMode
-      videoMode.option = previousStatus.videoOption
-    }, 10000)
-  }
-  console.log("textFromServer")
-  console.log(data.text)
-  //modules.erasePrint(ctx, canvas);
-  //modules.textPrint(ctx, canvas, data.text);
-  modules.erasePrint(ctx, canvas)
-  modules.textPrint(ctx,canvas, data.text)
-  speakVoice(data.text)
-  setTimeout(()=>{
-    modules.erasePrint(ctx, canvas);
-  },800)
-  stringsClient = "";
-});
-socket.on('instructionFromServer', (data) => {
-  videoStop();
-  modules.erasePrint(ctx, canvas);
-  modules.textPrint(ctx, canvas, data["text"]);
-  //alertPlay();
-  speakVoice(data)
-  cmdMode.instruction = true
-  setTimeout(()=>{
-    modules.erasePrint(ctx, canvas);
-    cmdMode.instruction = false
-  }, data["duration"]);
-});
-*/
-socket.on('instructionFromServer', (data) => {
   modules.erasePrint(ctx,canvas)
   modules.textPrint(ctx,canvas,String(data))
 })
-/*
-socket.on('streamListFromServer', (data) =>{
-  streamList = data;
-});
-socket.on('streamReqFromServer', (data) => {
-  switch(data){
-    case "CHAT":
-    case "droneChat":
-      if(chatBuffer!= {} && videoMode.option != "loop") socket.emit('chunkFromClient', chatBuffer);
-    break;
-  }
-});
-*/
 
-socket.on("recReqFromServer", () => {
-  if(initHsh.getUserMedia) {
-    videoMode.mode = "wait"
-    video.muted = false
-    modules.erasePrint(ctx,canvas)
-    modules.textPrint(ctx, canvas, "記録をとります。その場から好きなほうにカメラを向けて、画面をタップしてください")
-    setTimeout(()=>{
-      modules.erasePrint(ctx,canvas)
-    },1500)
-  }
-})
 
 let playsampleRate = 96000
 let playTarget = ""
@@ -231,7 +107,7 @@ socket.on('chunkFromServer', (data) => {
   if(videoMode.mode != "record"){
     if(data.target === "CHAT"){
       modules.erasePrint(ctx, canvas);
-      playAudioStream(data.audio,playsampleRate,1,false)
+//      playAudioStream(data.audio,playsampleRate,1,false)
       playVideo(data.video);
     } else if(data.target === "NONE") {
       modules.erasePrint(ctx, canvas);
@@ -536,6 +412,11 @@ let tradeButton = document.getElementById("gpsTrade")
 //document.getElementById("gpsTrade").addEventListener("click", () =>{
   tradeButton.addEventListener("click", () =>{
   socket.emit("readyFromClient", "TRADE")
+},false)
+
+let playButton = document.getElementById("playback")
+  playButton.addEventListener("click", () =>{
+  socket.emit("readyFromClient", "PLAYBACK")
 },false)
 
 let playButton = document.getElementById("playback")
