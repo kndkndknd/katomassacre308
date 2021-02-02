@@ -7,19 +7,17 @@
 <body id="body">
   <script src="/socket.io/socket.io.js"></script>
   <div id="wrapper">
-  <textarea name="instruction" id="inst" rows="7" cols="60" style="font-size:30px;"></textarea> <br>
-  <input type="button" id="rec" value="rec準備" />
+  <textarea name="text" id="text" rows="2" cols="60" style="font-size:30px;"></textarea> <br>
+  <input type="button" id="rec" value="rec" />
+  <input type="button" id="textActivate" value="text有効化" />
   <input type="button" id="playback" value="playback" />
-  <input type="button" id="gpsTrade" value="gpsTrade" />
   <input type="button" id="end" value="end" /><br>
-  <div id="list"><br>
   <video id="video" playsinline controls="true" style="display:none;"></video>
   <canvas id="cnvs">
     canvas not applied.
   </canvas>
-  <canvas id="strCnvs">
-    canvas not applied.
-  </canvas>
+  <div id="list"></div>
+  </div>
   <script>
     var socket = io.connect();
     var video;

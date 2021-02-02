@@ -22,6 +22,8 @@ const options = {
   //cert: fs.readFileSync(process.env.HTTPSKEY_PATH + 'cert.pem')
 }
 const os = require('os');
+const { isValidObjectId } = require('mongoose');
+const { disconnect } = require('process');
 
 const app = express();
 app.set('views', path.join(__dirname, 'views'));
@@ -45,6 +47,11 @@ app.get('/', (req, res, next) => {
     title: 'katomassacre308'
   });
 })
+app.get('/listen', (req, res, next) => {
+  res.render('listener', {
+    title: 'katomassacre308'
+  });
+})
 app.get('/ctrl', (req, res, next) => {
   res.render('ctrl', {
     title: 'ctrl'
@@ -56,26 +63,35 @@ module.exportComponent = app;
 let port = 8888;
 //let port = 3333;
 let server = https.createServer(options,app).listen(port);
-let io = require('socket.io').listen(server);
+//let io = require('socket.io').listen(server);
+let io = require('socket.io')(server);
 
 console.log("server start")
+if("en0" in os.networkInterfaces()){
+  console.log("server start in " + os.networkInterfaces().en0[0]["address"] + ":" + String(port));
+  console.log("server start in " + os.networkInterfaces().en0[1]["address"] + ":" + String(port));
+} else {
+  console.log("server start in :8888")
+}
 
 let clientList = {}
 let freqList = {}
+let recordBuffer = []
 
 
 io.sockets.on('connection',(socket)=>{
-  socket.on("disconnect", (socket) =>{
-    if(String(socket.id) in clientsList){
-      delete clientsList[String(socket.id)]
+  socket.on("disconnect", (reason) =>{
+    console.log(reason)
+    //if(String(socket.id) in clientList){
+      delete clientList[String(socket.id)]
       delete freqList[String(socket.id)]
-      console.log("disconnect")
-      console.log(Object.keys(io.sockets.adapter.rooms))
-    }
+      console.log("disconnect:" + String(socket.id))
+      //console.log(Object.keys(io.sockets.adapter.rooms))
+    //}
   })
-
+/*
   socket.on("initFromClient", (data) => {
-    clientsList[String(socket.id)] = {
+    clientList[String(socket.id)] = {
       getUserMedia: false 
     }
     freqList[String(socket.id)] = {
@@ -89,26 +105,31 @@ io.sockets.on('connection',(socket)=>{
         socket.join("notUserMedia")
         console.log("notUserMedia join")
       }
-      clientsList[String(socket.id)].getUserMedia = data
+      clientList[String(socket.id)].getUserMedia = data
     }
     
     //if(data.difference != undefined) clientsList[String(socket.id)].difference = data.difference
-    /*
-    if(data.originX != undefined && data.ori) {
-      clientsList[String(socket.id)] = {
-        originX: data.originX,
-        originY: data.originY,
-        getUserMedia: data.getUserMedia
-      }
-    }
-    */
     console.log("init " + String(socket.id))
     //console.log(Object.keys(clientsList))
   })
-  socket.on("freqFromServer", (data) => {
+  */
+  socket.on("freqFromClient", (data) => {
     console.log(data)
-    freqList[String(socket.id)] = {freq: data.freq}
-    io.to("listner").emit("freqFromServer", freqList)
+    freqList[String(socket.id)] = data
+    console.log(freqList)
+    //console.log(io.sockets.adapter.rooms)
+    //console.log(socket.rooms.has('client'))
+    if(socket.rooms.has('listener') || socket.rooms.has('ctrl')){
+    //  console.log("debug")
+      socket.emit("freqListFromServer", Object.values(freqList))
+    }
+    /*
+    if(io.sockets.manager.roomClients[socket.id]['/listener'] || io.sockets.manager.roomClients[socket.id]['/ctrl']) {
+      socket.emit("freqListFromServer", Object.values(freqList))
+    }
+    */
+    //io.to("listner").emit("freqListFromServer", Object.values(freqList))
+    //io.to("ctrl").emit("freqListFromServer", Object.values(freqList))
   })
 
   socket.on("textFromClient", (data) => {
@@ -127,28 +148,52 @@ io.sockets.on('connection',(socket)=>{
   socket.on("readyFromClient", (data) => {
     console.log(data)
     switch(data) {
-      /*case "recordEnd": //later
-        console.log("record end " + String(socket.id))
-      break;*/
+      case "CLIENT":
+        socket.join("client")
+        freqList[String(socket.id)] = 440 
+        /*
+        if(data != undefined) {
+          if(data) {
+            socket.join("getUserMedia")
+            console.log("getUserMedia join")
+          } else {
+            socket.join("notUserMedia")
+            console.log("notUserMedia join")
+          }
+          clientList[String(socket.id)].getUserMedia = data
+        }
+        */
+        break;
+      case "LISTENER":
+        socket.join("listner")
+        freqList[String(socket.id)] = 440 
+        break;
+      case "TEXT":
+        io.emit("textActivateFromServer")
+        break;
       case "RECORD":
         io.emit("recReqFromServer")
         break;
       case "PLAYBACK":
         io.emit("playReqFromServer")
         break;
+      case "END":
+        io.emit("endFromServer")
+        break;
       case "CTRL":
         socket.join("ctrl")
-        socket.emit('infoFromServer',freqList)
+        freqList[String(socket.id)] = 440 
+        //socket.emit('infoFromServer',freqList)
         break;
     }
   })
 
   socket.on("chunkFromClient", (data) => {
-    clientBuffer.push(data)
-    console.log("chunk from:" + String(socket.id) + " " + String(clientBuffer.length))
+    recordBuffer.push(data)
+    console.log("chunk from:" + String(socket.id) + " " + String(recordBuffer.length))
   })
   //i = 0
-  socket.on("reqFromClient", (data) => {
+  socket.on("reqFromClient", () => {
     /*
     if(data === "CLIENT") {
       if(receiveBuffer.length > 0) {
@@ -172,9 +217,9 @@ io.sockets.on('connection',(socket)=>{
       
     }
     */
-        let bufferSlice = receiveBuffer.shift()
+        let bufferSlice = recordBuffer.shift()
         socket.emit('chunkFromServer', bufferSlice)
-        receiveBuffer.push(bufferSlice)
+        recordBuffer.push(bufferSlice)
   })
 
 });

@@ -3,25 +3,36 @@ const modules = require('./module.js');
 navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
 window.URL = window.URL || window.webkitURL || window.mozURL || window.msURL;
 window.AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.msAudioContext;
+let initFlag = true
+let getUserMediaFlag = false
 
 let audioContext 
 let masterGain 
-let javascriptnode
-let osc
-let oscGain
-let streamBuffer = []
-let lookBackBuffer = []
-let loopBuffer = {}
-let chatBuffer = {}
+//let javascriptnode
+//let osc
+//let oscGain
 let bufferSize = 8192;
 let bufferRate = 96000;
 let chatGain
 let initHsh = {}
 let freqVal = 440
 
+//manymanyosc
+let numOfOsc = 0
+for(let i=0;i<100;i++){
+  eval("var osc" + String(i) + ";")
+  eval("var osc" + String(i) + "gain;")
+}
+
+let gps;
+let referenceCoords = {
+  oLatitude: 35.667698,
+  oLongitude: 139.697131
+}
+
 //let originalCoodinate = {x:0,y:0}
 
-let timelapseFlag = false;
+//let timelapseFlag = false;
 //video record/play ここから
 let image;
 let receive;
@@ -37,14 +48,27 @@ let bufferContext;
 const recordEmit = () =>{
   videoMode.mode = "record"
   modules.erasePrint(ctx, canvas)
-  modules.textPrint(ctx, canvas, message.explain.recording)
+  modules.textPrint(ctx, canvas, "recording")
+  socket.emit('chunkFromClient', {"video":toBase64(buffer, video), "target": "CLIENT", "freq": freqVal})
+  videoMode.mode = "none"
+  modules.erasePrint(ctx, canvas)
+  modules.textPrint(ctx, canvas, "撮影終わり")
+  //socket.emit("readyFromClient", "recordEnd")  //later to app.js
+  document.getElementById("video").style.display="none";
+  video.muted = true
+  setTimeout(() => {
+    modules.erasePrint(ctx, canvas)
+  }, 1000)
+  //video.muted = "muted"
+  /*
   setTimeout(()=>{
     videoMode.mode = "none"
     modules.erasePrint(ctx, canvas)
-    modules.textPrint(ctx, canvas, message.explain.recordEnd)
+    modules.textPrint(ctx, canvas, "record end")
     socket.emit("readyFromClient", "recordEnd")  //later to app.js
     video.muted = true
   },5000)
+  */
 }
 
 //canvas
@@ -72,9 +96,8 @@ const renderStart=()=> {
   render();
 }
 
-// socket
-socket.emit('readyFromClient', "CTRL");
 
+/*
 socket.on('infoFromServer',(data) =>{
   let list = ""
   for(let key in data) {
@@ -82,18 +105,30 @@ socket.on('infoFromServer',(data) =>{
   }
   document.getElementById('list').innerHTML = list
 })
+*/
 
 socket.on('recReqFromServer',()=>{
-  videoMode.mode = "wait"
-  video.muted = false
-  modules.textPrint(ctx, canvas, message.explain.recordReady)
-  setTimeout(()=>{
-    modules.erasePrint(ctx,canvas)
-  },1500)
+  if(getUserMediaFlag) {
+    videoMode.mode = "wait"
+    video.muted = false
+    modules.textPrint(ctx, canvas, "record ready")
+    setTimeout(()=>{
+      modules.erasePrint(ctx,canvas)
+    },1500)
+  }
 })
 socket.on('playReqFromServer', () => {
   modules.erasePrint(ctx,canvas)
-  modules.textPrint(ctx, canvas, message.explain.playReady)
+  modules.textPrint(ctx, canvas, "playback ready")
+  //manymanyosc
+  let currentTime = audioContext.currentTime
+  for(let i=1;i<numOfOsc;i++) {
+    eval("osc" + String(i) + "gain.gain.setTargetAtTime(0,currentTime,10);")
+  }
+  setTimeout(()=>{
+    socket.emit('reqFromClient')
+    modules.erasePrint(ctx,canvas)
+  },1000 + (Math.random() * 1000))
 })
 socket.on('textFromServer', (data) => {
   modules.erasePrint(ctx,canvas)
@@ -101,22 +136,62 @@ socket.on('textFromServer', (data) => {
 })
 
 
-let playsampleRate = 96000
-let playTarget = ""
 socket.on('chunkFromServer', (data) => {
   if(videoMode.mode != "record"){
-    if(data.target === "CHAT"){
-      modules.erasePrint(ctx, canvas);
+    // if(data.target === "CHAT"){
+      // modules.erasePrint(ctx, canvas);
 //      playAudioStream(data.audio,playsampleRate,1,false)
       playVideo(data.video);
-    } else if(data.target === "NONE") {
-      modules.erasePrint(ctx, canvas);
-      modules.textPrint(ctx, canvas, "まだ演奏していません");
-    }
+    // } else if(data.target === "NONE") {
+      // modules.erasePrint(ctx, canvas);
+      // modules.textPrint(ctx, canvas, "まだ演奏していません");
+    // }
     socket.emit('reqFromClient')
+  }
+  if(data.freq != undefined){
+    osc0.frequency.setValueAtTime(data.freq, 0);
   }
 });
 
+
+//manymanyosc
+socket.on("freqListFromServer", (data) => {
+  console.log(data)
+  let currentTime = audioContext.currentTime
+  data.forEach((element, index) =>{
+    if(eval("osc" + String(index) + " === undefined")) {
+      eval("osc" + String(index) + " = audioContext.createOscillator();")
+      eval("osc" + String(index) + ".frequency.setTargetAtTime(440,currentTime,0);")
+      eval("osc" + String(index) + "gain = audioContext.createGain();")
+      eval("osc" + String(index) + ".connect(osc" + String(index) + "gain);") 
+      eval("osc" + String(index) + "gain.connect(audioContext.destination);") 
+      eval("osc" + String(index) + ".start(0);") 
+    }
+    eval("osc" + index + "gain.gain.setTargetAtTime(1,currentTime,1000);")
+    eval("osc" + index + ".frequency.setTargetAtTime("+ String(element) + ",currentTime,1000);")
+  })
+  if(data.length < numOfOsc) {
+    for(let i=data.length;i<numOfOsc;i++) {
+      eval("osc" + String(i) + "gain.gain.setTargetAtTime(0,currentTime,10);")
+    }
+  } else {
+    numOfOsc = data.length
+  }
+})
+
+socket.on('endFromServer', (data) =>{
+  videoStop();
+  modules.erasePrint(ctx,canvas);
+  modules.textPrint(ctx, canvas, data);
+  let currentTime = audioContext.currentTime;
+  osc0Gain.gain.setTargetAtTime(0,currentTime,1000);
+  stopGPS();
+})
+
+const videoStop = () => {
+  videoMode.mode = "none";
+
+  /*
 const videoStop = () => {
   switch (videoMode.mode) {
     case "chunkEmit":
@@ -127,6 +202,7 @@ const videoStop = () => {
       videoMode.mode = "none";
       break;
   }
+  */
   videoMode.option = "none"
 }
 
@@ -155,14 +231,14 @@ const stopLapse = ()=>{
   clearInterval(setLapse);
 }
 */
-const funcToBase64 = (buffer, video) =>{
+const toBase64 = (buffer, video) =>{
   let bufferContext = buffer.getContext('2d');
   buffer.width = video.videoWidth;
   buffer.height = video.videoHeight;
   bufferContext.drawImage(video, 0, 0);
   return buffer.toDataURL("image/jpeg");
 }
-
+/*
 const onAudioProcess = (e) => {
     if(videoMode.mode === "record"){
       let bufferData = new Float32Array(bufferSize);
@@ -174,50 +250,10 @@ const onAudioProcess = (e) => {
           bufferData[i] = input[i];
         }
       }
-      socket.emit('chunkFromClient', {"audio":bufferData, "video":funcToBase64(buffer, video), "target": "INTERNET"})
+      socket.emit('chunkFromClient', {"audio":bufferData, "video":toBase64(buffer, video), "target": "INTERNET"})
     }
 }
-const playAudioStream = (flo32arr, sampleRate, volume, glitch) => {
-    let audio_src = audioContext.createBufferSource();
-    if(!glitch){
-      let audio_buf = audioContext.createBuffer(1, bufferSize, sampleRate)
-      if(audio_buf.copyToChannel != undefined) {
-        let audioData = new Float32Array(bufferSize);
-        for(let i = 0; i < audioData.length; i++){
-          audioData[i] = flo32arr[i] * volume;
-        }
-        audio_buf.copyToChannel(audioData, 0);
-      } else {
-        let audioData = audio_buf.getChannelData(0)
-        for(let i = 0; i < audioData.length; i++){
-          audioData[i] = flo32arr[i] * volume;
-        }
-      }
-      audio_src.buffer = audio_buf;
-      audio_src.connect(masterGain);
-    } else {
-      let audio_buf = audioContext.createBuffer(1, bufferSize, convolver.context.sampleRate)
-      //if(copyToChannel in audio_buf) {
-      if(audio_buf.copyToChannel != undefined) {
-        let audioData = new Float32Array(bufferSize);
-        for(let i = 0; i < audioData.length; i++){
-          audioData[i] = flo32arr[i] * volume;
-        }
-        audio_buf.copyToChannel(audioData, 0);
-      } else {
-        let audioData = audio_buf.getChannelData(0)
-        for(let i = 0; i < audioData.length; i++){
-          audioData[i] = flo32arr[i] * volume;
-        }
-      }
-      audio_src.buffer = audio_buf;
-      convolver.buffer = audio_buf;
-      audio_src.connect(convolver);
-    }
-    //let timeOut = audio_src.buffer.duration * 1000;
-    audio_src.start(0);
-}
-//video record/play ここまで
+*/
 
 //let micLevel = 0.5
 //
@@ -229,25 +265,26 @@ let mediaDevices = navigator.mediaDevices || ((navigator.mozGetUserMedia || navi
     }
 } : null);
 
-let initFlag = 0
-
-let gps;
 const getGPS = () =>{
   gps = setInterval(()=>{
       navigator.geolocation.getCurrentPosition((position)=>{
-        let currentTime = audioContext.currentTime;
-        if(initHsh.originX != undefined && initHsh.originY != undefined) {
-          freqVal = 440 + ((position.coords.longitude - initHsh.originX) / 0.00010966404715491394 ) + ((position.coords.latitude - initHsh.originY) / 0.000090133729745762 )
-        }
-        osc.frequency.setTargetAtTime(freqVal,currentTime,500);
+        //let currentTime = audioContext.currentTime;
+        //if(initHsh.originX != undefined && initHsh.originY != undefined) {
+          //freqVal = 440 + ((position.coords.longitude - initHsh.originX) / 0.00010966404715491394 ) + ((position.coords.latitude - initHsh.originY) / 0.000090133729745762 )
+          let distance = Math.sqrt((position.coords.longitude - referenceCoords.oLongitude) ** 2 + (position.coords.latitude - referenceCoords.oLatitude) ** 2)
+          //console.log(distance)
+          freqVal = 440 + (2021 * distance)
+        //}
+//        osc0.frequency.setTargetAtTime(freqVal,currentTime,500);
+        socket.emit('freqFromClient', freqVal)
         //socket.emit('initFromClient',initHsh)
       })
-  },500)
+  },5000)
 }
 const stopGPS = () => {
   clearInterval(gps);
 }
-
+/*
 const emitGPS = () => {
   gps = setInterval(()=>{
     //later
@@ -255,10 +292,11 @@ const emitGPS = () => {
     socket.emit("gpsFromClient",gpsVal)
   },500)
 }
+*/
 
 const initialize = () =>{
-  if(initFlag === 0) { 
-    initFlag++
+  if(initFlag) { 
+    initFlag = false
     audioContext = new AudioContext();
     masterGain = audioContext.createGain();
 
@@ -266,34 +304,38 @@ const initialize = () =>{
     masterGain.connect(audioContext.destination);
 
     //osc(sinewave)
-    osc = audioContext.createOscillator();
-    oscGain = audioContext.createGain();
-    osc.connect(oscGain);
-    osc.frequency.setValueAtTime(freqVal, 0);
-    oscGain.gain.setValueAtTime(0,0);
-    oscGain.connect(masterGain);
-    osc.start(0);
+    /*
+    osc0 = audioContext.createOscillator();
+    osc0Gain = audioContext.createGain();
+    osc0.connect(osc0Gain);
+    osc0.frequency.setValueAtTime(freqVal, 0);
+    osc0Gain.gain.setValueAtTime(0,0);
+    osc0Gain.connect(audioContext.destination);
+    osc0.start(0);
+    */
 
 
   //record/play
-    javascriptnode = audioContext.createScriptProcessor(8192, 1, 1);
+    //javascriptnode = audioContext.createScriptProcessor(8192, 1, 1);
 
     // chat
-    chatGain = audioContext.createGain();
+    //chatGain = audioContext.createGain();
     video = document.getElementById('video');
     video.muted = true
     buffer = document.createElement('canvas');
     bufferContext = buffer.getContext('2d');
-    chatGain.gain.setValueAtTime(1,0);
-    chatGain.connect(masterGain);
+    //chatGain.gain.setValueAtTime(1,0);
+    //chatGain.connect(masterGain);
     if(navigator.mediaDevices.getUserMedia){
     //  navigator.mediaDevices.getUserMedia({
       mediaDevices.getUserMedia({
         video: true, audio: true
       }).then((stream) =>{
+        /*
         let mediastreamsource = void 0;
         mediastreamsource = audioContext.createMediaStreamSource(stream);
         mediastreamsource.connect(javascriptnode);
+        */
         //video
         video = document.getElementById('video');
         video.srcObject = stream
@@ -305,24 +347,28 @@ const initialize = () =>{
         video.play();
         video.volume = 0;
         renderStart();
-        initHsh.getUserMedia = true
-        socket.emit('initFromClient',initHsh)
+        //initHsh.getUserMedia = true
+        getUserMediaFlag = true
+        //socket.emit('initFromClient',initHsh)
         modules.erasePrint(ctx,canvas)
-        modules.textPrint(ctx,canvas,message.explain.next)//rlater textPrint
+        //modules.textPrint(ctx,canvas,message.explain.next)//rlater textPrint
       },  (e) =>{
-        initHsh.getUserMedia = false
+        //initHsh.getUserMedia = false
+        getUserMediaFlag = false
         modules.erasePrint(ctx,canvas)
-        modules.textPrint(ctx,canvas,message.err.getUserMedia)
-        socket.emit('initFromClient',initHsh)
+        modules.textPrint(ctx,canvas,"camera missed")
+        //socket.emit('initFromClient',initHsh)
         return console.log(e);
       });
     } else {
       navigator.getUserMedia({
         video: true, audio: true
       }, (stream) =>{
+        /*
         let mediastreamsource = void 0;
         mediastreamsource = audioContext.createMediaStreamSource(stream);
         mediastreamsource.connect(javascriptnode);
+        */
         //video
         video = document.getElementById('video');
         //video.src = window.URL.createObjectURL(stream);
@@ -336,45 +382,51 @@ const initialize = () =>{
         video.play();
         video.volume = 0;
         renderStart();
-        initHsh.getUserMedia = true
-        socket.emit('initFromClient',initHsh)
+        //initHsh.getUserMedia = true
+        getUserMediaFlag = true
+        //socket.emit('initFromClient',initHsh)
         modules.erasePrint(ctx,canvas)
-        modules.textPrint(ctx,canvas,message.explain.next)//rlater textPrint
+        //modules.textPrint(ctx,canvas,essage.explain.next)//rlater textPrint
       },  (e) =>{
         modules.erasePrint(ctx,canvas)
-        modules.textPrint(ctx,canvas,message.err.getUserMedia)//rlater textPrint
-        initHsh.getUserMedia = false
-        socket.emit('initFromClient',initHsh)
+        modules.textPrint(ctx,canvas,"camera missed")
+        getUserMediaFlag = false
+        //initHsh.getUserMedia = false
+        //socket.emit('initFromClient',initHsh)
         return console.log(e);
       });
     }
     //rec
-    javascriptnode.onaudioprocess = onAudioProcess;
+    //javascriptnode.onaudioprocess = onAudioProcess;
     // javascriptnode.connect(audioContext.destination);
     //javascriptnode.connect(masterGain);
     //video
     image = document.createElement("img");
     receive = document.getElementById("cnvs");
     receive_ctx = receive.getContext("2d");
-    let timelapseFlag = true
+    //let timelapseFlag = true
     modules.erasePrint(ctx,canvas)
+    /*
     if(navigator.geolocation){
 
       navigator.geolocation.getCurrentPosition((position)=>{
         modules.erasePrint(ctx,canvas)
-        modules.textPrint(ctx,canvas,message.explain.next)
+        modules.textPrint(ctx,canvas,"GPS gotten")
         initHsh = {
           originX:position.coords.longitude,
           originY:position.coords.latitude
         }
         console.log(position.coords.longitude)
-        socket.emit('initFromClient',initHsh)
+        //socket.emit('initFromClient',initHsh)
       })
     } else {
       modules.erasePrint(ctx,canvas)
-      modules.textPrint(ctx,canvas,message.err.gps)
+      modules.textPrint(ctx,canvas,"GPS missed")
     }
+    */
     console.log(initFlag)
+    getGPS()
+    /*
   } else if(initFlag === 1){
     initFlag++
     let currentTime = audioContext.currentTime;
@@ -383,11 +435,16 @@ const initialize = () =>{
     getGPS()
     console.log(initFlag)
   } else if(initFlag > 1 && videoMode.mode === "wait") {
-    initFlag++
+    */
+    //initFlag++
+  //} else {
+  } else if(!initFlag && videoMode.mode === "wait") {
     modules.erasePrint(ctx,canvas)
     recordEmit()
-    console.log(initFlag)
+    //console.log(initFlag)
   }
+// socket
+  socket.emit('readyFromClient', "CTRL");
 };
 
 //document.getElementById("wrapper").onclick = function() {
@@ -400,7 +457,7 @@ window.addEventListener('resize', (e) =>{
   console.log('resizing')
   sizing()
 })
-modules.textPrint(ctx,canvas,message.explain.init)
+modules.textPrint(ctx,canvas,"init")
 
 let recButton = document.getElementById("rec")
 //document.getElementById("rec").addEventListener("click", () =>{
@@ -408,27 +465,25 @@ recButton.addEventListener("click", () =>{
   socket.emit("readyFromClient", "RECORD")
 },false)
 
-let tradeButton = document.getElementById("gpsTrade")
-//document.getElementById("gpsTrade").addEventListener("click", () =>{
-  tradeButton.addEventListener("click", () =>{
-  socket.emit("readyFromClient", "TRADE")
+let textButton = document.getElementById("textActivate")
+//document.getElementById("rec").addEventListener("click", () =>{
+textButton.addEventListener("click", () =>{
+  socket.emit("readyFromClient", "TEXT")
 },false)
 
+
 let playButton = document.getElementById("playback")
-  playButton.addEventListener("click", () =>{
+playButton.addEventListener("click", () =>{
   socket.emit("readyFromClient", "PLAYBACK")
 },false)
 
-let playButton = document.getElementById("playback")
-  playButton.addEventListener("click", () =>{
-  socket.emit("readyFromClient", "PLAYBACK")
+let endButton = document.getElementById("end")
+endButton.addEventListener("click", () =>{
+  socket.emit("readyFromClient", "END")
 },false)
 
-const keyDown = (e) => {
-  socket.emit("textFromClient",document.getElementById("inst").value)
-}
-
-document.addEventListener('keydown', (e) => {
-  console.log(e)
-  keyDown(e)
-})
+let textListner = document.getElementById("text")
+textListner.addEventListener('input', ((e) => {
+  console.log(e.target.value)
+  socket.emit("textFromClient", e.target.value)
+}))

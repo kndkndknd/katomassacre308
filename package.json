@@ -24,7 +24,7 @@
     "react-dom": "^16.4.2",
     "request": "latest",
     "serve-favicon": "~2.3.0",
-    "socket.io": "^1.4.6"
+    "socket.io": "^3.1.0"
   },
   "description": "for performance in 2017.06.24",
   "main": "app.js",

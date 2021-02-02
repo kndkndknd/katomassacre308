@@ -16,6 +16,7 @@ module.exports = {
   // メインとなるJavaScriptファイル（エントリーポイント）
   entry: {
     client: './src/client.js',
+    listener: './src/listener.js',
     ctrl: './src/ctrl.js'
   } ,
   // entry: scripts,

@@ -5,17 +5,23 @@ window.URL = window.URL || window.webkitURL || window.mozURL || window.msURL;
 window.AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.msAudioContext;
 
 let audioContext 
-let masterGain 
+//let masterGain 
+//manymanyosc
+let numOfOsc = 0
+for(let i=0;i<100;i++){
+  eval("var osc" + String(i) + ";")
+  eval("var osc" + String(i) + "gain;")
+}
+/*
 let osc
 let oscGain
+*/
 let referenceCoords = {
   oLatitude: 35.667698,
   oLongitude: 139.697131
 }
 let getUserMediaFlag = false
 let freqVal = 440
-let tradeFlag =false
-let javascriptnode
 //let playsampleRate = 96000
 //let playTarget = ""
 
@@ -103,14 +109,17 @@ socket.on('recReqFromServer',()=>{
     modules.textPrint(ctx, canvas, "撮影の準備ができました、画面をタップしてください")
   } else {
     modules.erasePrint(ctx,canvas)
-    modules.textPrint(ctx, canvas, "撮影だめです")
+    modules.textPrint(ctx, canvas, "撮影だめです。音だけ聴いてください")
   }
 })
 
 socket.on('playReqFromServer', () => {
   modules.erasePrint(ctx,canvas)
-  //modules.textPrint(ctx, canvas, data)
   modules.textPrint(ctx, canvas, "さきほど撮影した写真を回し見しましょう")
+  let currentTime = audioContext.currentTime
+  for(let i=1;i<numOfOsc;i++) {
+    eval("osc" + String(i) + "gain.gain.setTargetAtTime(0,currentTime,10);")
+  }
   setTimeout(()=>{
     socket.emit('reqFromClient')
     modules.erasePrint(ctx,canvas)
@@ -127,7 +136,7 @@ socket.on('chunkFromServer', (data) => {
     if(data.freq != undefined){
       //let currentTime = audioContext.currentTime;
       //osc.frequency.setValueAtTime(data.freq, currentTime);
-      osc.frequency.setValueAtTime(data.freq, 0);
+      osc0.frequency.setValueAtTime(data.freq, 0);
     }
   }
   socket.emit('reqFromClient', "CLIENT")
@@ -141,12 +150,37 @@ socket.on('textActivateFromServer', ()=> {
   modules.textPrint(ctx, canvas, "テキストボックスを生やしました。画面上のボックスにテキスト入れると全員にテキスト送れます。皆にやってほしいことを書きましょう");
 })
 
+//manymanyosc
+socket.on("freqListFromServer", (data) => {
+  console.log(data)
+  let currentTime = audioContext.currentTime
+  data.forEach((element, index) =>{
+    if(eval("osc" + String(index) + " === undefined")) {
+      eval("osc" + String(index) + " = audioContext.createOscillator();")
+      eval("osc" + String(index) + ".frequency.setTargetAtTime(440,currentTime,0);")
+      eval("osc" + String(index) + "gain = audioContext.createGain();")
+      eval("osc" + String(index) + ".connect(osc" + String(index) + "gain);") 
+      eval("osc" + String(index) + "gain.connect(audioContext.destination);") 
+      eval("osc" + String(index) + ".start(0);") 
+    }
+    eval("osc" + index + "gain.gain.setTargetAtTime(1,currentTime,1000);")
+    eval("osc" + index + ".frequency.setTargetAtTime("+ String(element) + ",currentTime,1000);")
+  })
+  if(data.length < numOfOsc) {
+    for(let i=data.length;i<numOfOsc;i++) {
+      eval("osc" + String(i) + "gain.gain.setTargetAtTime(0,currentTime,10);")
+    }
+  } else {
+    numOfOsc = data.length
+  }
+})
+
 socket.on('endFromServer', (data) =>{
   videoStop();
   modules.erasePrint(ctx,canvas);
   modules.textPrint(ctx, canvas, data);
   let currentTime = audioContext.currentTime;
-  oscGain.gain.setTargetAtTime(0,currentTime,1000);
+  osc0Gain.gain.setTargetAtTime(0,currentTime,1000);
   stopGPS();
 })
 
@@ -212,9 +246,9 @@ const getGPS = () =>{
       let distance = Math.sqrt((position.coords.longitude - referenceCoords.oLongitude) ** 2 + (position.coords.latitude - referenceCoords.oLatitude) ** 2)
       //console.log(distance)
       freqVal = 440 + (2021 * distance)
-      let currentTime = audioContext.currentTime;
+      //let currentTime = audioContext.currentTime;
       console.log(freqVal)
-      osc.frequency.setTargetAtTime(freqVal,currentTime,500);
+      //osc.frequency.setTargetAtTime(freqVal,currentTime,500);
           socket.emit('freqFromClient', freqVal)
           /*,{
 
@@ -239,7 +273,7 @@ const getGPS = () =>{
       }
       */
     })
-  },3000)
+  },5000)
 }
 const stopGPS = () => {
   clearInterval(gps);
@@ -273,6 +307,7 @@ const initialize = () =>{
     //masterGain.connect(audioContext.destination);
 
     //osc(sinewave)
+    /*
     osc = audioContext.createOscillator();
     oscGain = audioContext.createGain();
     osc.connect(oscGain);
@@ -281,10 +316,11 @@ const initialize = () =>{
     oscGain.connect(audioContext.destination);
     //osc.connect(audioContext.destination)
     osc.start(0);
+    */
 
 
   //record/play
-    javascriptnode = audioContext.createScriptProcessor(8192, 1, 1);
+    //javascriptnode = audioContext.createScriptProcessor(8192, 1, 1);
 
     // chat
     //chatGain = audioContext.createGain();
@@ -301,9 +337,11 @@ const initialize = () =>{
         //video: { facingMode: { exact: "environment" } }, audio: true
         video: true, audio: true
       }).then((stream) =>{
+        /*
         let mediastreamsource = void 0;
         mediastreamsource = audioContext.createMediaStreamSource(stream);
         mediastreamsource.connect(javascriptnode);
+        */
         //video
         video = document.getElementById('video');
         video.srcObject = stream
@@ -316,7 +354,7 @@ const initialize = () =>{
         video.volume = 0;
         renderStart();
         //initHsh.getUserMedia = true
-      //  socket.emit('initFromClient', true)
+        //socket.emit('initFromClient', true)
         modules.erasePrint(ctx,canvas)
         getUserMediaFlag = true
         //modules.textPrint(ctx,canvas,"もう一度タップすると音が出ます")//rlater textPrint
@@ -337,28 +375,19 @@ const initialize = () =>{
         video = document.getElementById('video');
         //video.src = window.URL.createObjectURL(stream);
         video.srcObject = stream
-        /*
-        if(video.srcObject != undefined){
-          video.srcObject = stream
-        } else {
-          video.src = window.URL.createObjectURL(stream);
-        }*/
         video.play();
         video.volume = 0;
         renderStart();
-        //socket.emit('initFromClient',true)
         modules.erasePrint(ctx,canvas)
-        //modules.textPrint(ctx,canvas,"もう一度タップすると音が出ます")//rlater textPrint
         getUserMediaFlag = true
       },  (e) =>{
         modules.erasePrint(ctx,canvas)
         modules.textPrint(ctx,canvas,"カメラの情報がとれませんでした。撮影うんぬんの表示が出たらシカトしてください。もう一度タップすると音が出ます")
-        //socket.emit('initFromClient',false)
         getUserMediaFlag = false
         return console.log(e);
       });
     }
-    javascriptnode.onaudioprocess = onAudioProcess;
+    //javascriptnode.onaudioprocess = onAudioProcess;
     //video
     image = document.createElement("img");
     receive = document.getElementById("cnvs");
@@ -366,25 +395,12 @@ const initialize = () =>{
     //let timelapseFlag = true
     modules.erasePrint(ctx,canvas)
     if(!navigator.geolocation){
-      /*
-      navigator.geolocation.getCurrentPosition((position)=>{
-        modules.erasePrint(ctx,canvas)
-        modules.textPrint(ctx,canvas,message.explain.next)
-        initHsh = {
-          oLongitude:position.coords.longitude,
-          oLatitude:position.coords.latitude
-        }
-        console.log(position.coords.longitude)
-        socket.emit('initFromClient',initHsh)
-      })
-      */
-    //} else {
       modules.erasePrint(ctx,canvas)
-      modules.textPrint(ctx,canvas,"GPSの情報がとれませんでした。すみません、周りの音を聴いて楽しんでください")
+      modules.textPrint(ctx,canvas,"GPSの情報がとれませんでした。他のひとの動きで音は変化するのでそれを楽しんでください")
     }
     let currentTime = audioContext.currentTime;
-    oscGain.gain.setTargetAtTime(1,currentTime,3);
-    socket.emit("readyFromClient", "CLIENT")
+  //  oscGain.gain.setTargetAtTime(1,currentTime,3);
+    socket.emit("readyFromClient", "LISTENER")
     getGPS()
     /*
   } else if(initFlag === 1){
@@ -409,4 +425,4 @@ window.addEventListener('resize', (e) =>{
   console.log('resizing')
   sizing()
 })
-modules.textPrint(ctx,canvas,"GPS、カメラを使います。あと音が出ます。問題なければ画面をタップしてください。")
+modules.textPrint(ctx,canvas,"GPS、カメラを使います。あと音が出ます。問題なければ画面をタップかクリックしてください。")
