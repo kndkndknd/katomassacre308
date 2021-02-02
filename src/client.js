@@ -37,21 +37,23 @@ let bufferContext;
 const recordEmit = () =>{
   videoMode.mode = "record"
   //modules.erasePrint(ctx, canvas)
+  console.log("vid")
   modules.textPrint(ctx, canvas, "撮影")
   //setTimeout(()=>{
   socket.emit('chunkFromClient', {"video":toBase64(buffer, video), "target": "CLIENT", "freq": freqVal})
-  videoMode.mode = "none"
-  modules.erasePrint(ctx, canvas)
-  modules.textPrint(ctx, canvas, "撮影終わり")
-  //socket.emit("readyFromClient", "recordEnd")  //later to app.js
   document.getElementById("video").style.display="none";
   video.muted = true
+  videoMode.mode = "none"
+  document.getElementById("video").style.display="none";
+  modules.erasePrint(ctx, canvas)
+  playVideo(video);
+  modules.textPrint(ctx, canvas, "撮影しました")
+  //socket.emit("readyFromClient", "recordEnd")  //later to app.js
   setTimeout(() => {
     modules.erasePrint(ctx, canvas)
   }, 1000)
   //video.muted = "muted"
   //},2000)
-  
 }
 
 //canvas
@@ -100,7 +102,16 @@ socket.on('recReqFromServer',()=>{
     document.getElementById("video").style.display="block";
     
     modules.erasePrint(ctx,canvas)
-    modules.textPrint(ctx, canvas, "撮影の準備ができました、画面をタップしてください")
+    modules.textPrint(ctx, canvas, "撮影の準備ができました、画面をタップしてください、自分を撮りたくない場合は壁とか取ってもらうか、タッチ/クリックをしないようにしてください")
+    setTimeout(()=>{
+      if(videoMode.mode === "wait") {
+        modules.erasePrint(ctx,canvas)
+        modules.textPrint(ctx, canvas, "撮影を取りやめました")
+        videoMode.mode = "none"
+        video.muted = true
+        document.getElementById("video").style.display="none";
+      }
+    },10000)
   } else {
     modules.erasePrint(ctx,canvas)
     modules.textPrint(ctx, canvas, "撮影だめです")
@@ -206,6 +217,7 @@ let initFlag = true
 
 let gps;
 const getGPS = () =>{
+  //console.log("debugging")
   gps = setInterval(()=>{
     navigator.geolocation.getCurrentPosition((position)=>{
       console.log(position.coords)
@@ -215,7 +227,7 @@ const getGPS = () =>{
       let currentTime = audioContext.currentTime;
       console.log(freqVal)
       osc.frequency.setTargetAtTime(freqVal,currentTime,500);
-          socket.emit('freqFromClient', freqVal)
+      socket.emit('freqFromClient', freqVal)
           /*,{
 
             freq: freqVal,
@@ -284,7 +296,7 @@ const initialize = () =>{
 
 
   //record/play
-    javascriptnode = audioContext.createScriptProcessor(8192, 1, 1);
+    //javascriptnode = audioContext.createScriptProcessor(8192, 1, 1);
 
     // chat
     //chatGain = audioContext.createGain();
@@ -301,9 +313,11 @@ const initialize = () =>{
         //video: { facingMode: { exact: "environment" } }, audio: true
         video: true, audio: true
       }).then((stream) =>{
+        /*
         let mediastreamsource = void 0;
         mediastreamsource = audioContext.createMediaStreamSource(stream);
         mediastreamsource.connect(javascriptnode);
+        */
         //video
         video = document.getElementById('video');
         video.srcObject = stream
@@ -358,7 +372,7 @@ const initialize = () =>{
         return console.log(e);
       });
     }
-    javascriptnode.onaudioprocess = onAudioProcess;
+    //javascriptnode.onaudioprocess = onAudioProcess;
     //video
     image = document.createElement("img");
     receive = document.getElementById("cnvs");
@@ -385,6 +399,7 @@ const initialize = () =>{
     let currentTime = audioContext.currentTime;
     oscGain.gain.setTargetAtTime(1,currentTime,3);
     socket.emit("readyFromClient", "CLIENT")
+    //console.log("debug")
     getGPS()
     /*
   } else if(initFlag === 1){
@@ -392,6 +407,7 @@ const initialize = () =>{
     modules.erasePrint(ctx,canvas)
     */
   } else if(!initFlag && videoMode.mode === "wait") {
+    console.log("video")
     modules.erasePrint(ctx,canvas)
     recordEmit()
   }

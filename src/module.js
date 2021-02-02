@@ -1,4 +1,4 @@
-exports.charEmit = function charEmit(char, socket){
+/*exports.charEmit = function charEmit(char, socket){
   socket.emit('charFromClient', char);
 }
 
@@ -14,7 +14,7 @@ exports.toBase64 = function toBase64(buffer, video){
   //return buffer.toDataURL("image/webp");
   return buffer.toDataURL("image/jpeg");
 }
-
+*/
 exports.textPrint = function textPrint(ctx, canvas, text){
   if(text != undefined){
   ctx.globalAlpha = 1
@@ -93,7 +93,7 @@ ctx.fillStyle = "white";
 exports.erasePrint = function whitePrint(ctx, canvas) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
-
+/*
 exports.ctrlView = function ctrlView(statusList){
   let HTML = "";
   let clients = statusList["clients"];
@@ -229,3 +229,4 @@ exports.previousStatus = function previousStatus(audioContext, videoMode){
   let rtnHsh = {}
   return rtnHsh
 }
+*/

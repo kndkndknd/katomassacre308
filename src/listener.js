@@ -48,7 +48,8 @@ const recordEmit = () =>{
   socket.emit('chunkFromClient', {"video":toBase64(buffer, video), "target": "CLIENT", "freq": freqVal})
   videoMode.mode = "none"
   modules.erasePrint(ctx, canvas)
-  modules.textPrint(ctx, canvas, "撮影終わり")
+  playVideo(video);
+  modules.textPrint(ctx, canvas, "撮影しました")
   //socket.emit("readyFromClient", "recordEnd")  //later to app.js
   document.getElementById("video").style.display="none";
   video.muted = true
@@ -107,6 +108,14 @@ socket.on('recReqFromServer',()=>{
     
     modules.erasePrint(ctx,canvas)
     modules.textPrint(ctx, canvas, "撮影の準備ができました、画面をタップしてください")
+    setTimeout(()=>{
+      if(videoMode.mode === "wait") {
+        modules.erasePrint(ctx,canvas)
+        modules.textPrint(ctx, canvas, "撮影を取りやめました")
+        videoMode.mode = "none"
+        video.muted = true
+      }
+    })
   } else {
     modules.erasePrint(ctx,canvas)
     modules.textPrint(ctx, canvas, "撮影だめです。音だけ聴いてください")
