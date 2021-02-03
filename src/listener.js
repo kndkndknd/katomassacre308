@@ -148,9 +148,9 @@ socket.on('chunkFromServer', (data) => {
     if(data.freq != undefined){
       //let currentTime = audioContext.currentTime;
       //osc.frequency.setValueAtTime(data.freq, currentTime);
-      //osc0.frequency.setValueAtTime(data.freq, 0);
-      let currentTime = audioContext.currentTime
-      osc0.frequency.setTargetAtTime(freqVal,currentTime,0);
+      osc0.frequency.setValueAtTime(data.freq, 0);
+      // let currentTime = audioContext.currentTime
+      // osc0.frequency.setTargetAtTime(freqVal,currentTime,0);
     }
   }
   socket.emit('reqFromClient', "CLIENT")
@@ -190,13 +190,16 @@ socket.on("freqListFromServer", (data) => {
 })
 
 socket.on('endFromServer', (data) =>{
-  videoStop();
+  //videoStop();
+  videoMode.mode = "none"
+  videoMode.option = "none"
   modules.erasePrint(ctx,canvas);
   modules.textPrint(ctx, canvas, data);
   let currentTime = audioContext.currentTime;
   //osc0Gain.gain.setTargetAtTime(0,currentTime,1000);
   for(let i=0;i<numOfOsc;i++) {
-    eval("osc" + String(i) + "gain.gain.setTargetAtTime(0,currentTime,1000);")
+    //eval("osc" + String(i) + "gain.gain.setTargetAtTime(0,currentTime,1000);")
+    eval("osc" + String(i) + "gain.gain.setValueAtTime(0, 0);")
   }
   stopGPS();
 })

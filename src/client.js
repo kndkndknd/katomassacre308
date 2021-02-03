@@ -86,6 +86,7 @@ const renderStart=()=> {
 //socket.emit('connectFromClient', client);
 
 socket.on('textFromServer', (data) => {
+  console.log(data)
   modules.erasePrint(ctx,canvas)
   modules.textPrint(ctx,canvas,String(data))
 })
@@ -140,9 +141,9 @@ socket.on('chunkFromServer', (data) => {
     if(data.freq != undefined){
       //let currentTime = audioContext.currentTime;
       //osc.frequency.setValueAtTime(data.freq, currentTime);
-      //osc.frequency.setValueAtTime(data.freq, 0);
-      let currentTime = audioContext.currentTime
-      osc.frequency.setTargetAtTime(freqVal,currentTime,0);
+      osc.frequency.setValueAtTime(data.freq, 0);
+      // let currentTime = audioContext.currentTime
+      // osc.frequency.setTargetAtTime(freqVal,currentTime,0);
     }
   }
   if(videoMode.mode != "none") {
@@ -160,11 +161,14 @@ socket.on('textActivateFromServer', ()=> {
 })
 
 socket.on('endFromServer', (data) =>{
-  videoStop();
+  //videoStop();
+  videoMode.mode = "none"
+  videoMode.option = "none"
   modules.erasePrint(ctx,canvas);
   modules.textPrint(ctx, canvas, data);
   let currentTime = audioContext.currentTime;
-  oscGain.gain.setTargetAtTime(0,currentTime,1000);
+  //oscGain.gain.setTargetAtTime(0,currentTime,1000);
+  oscGain.gain.setValueAtTime(0, 0);
   stopGPS();
 })
 
