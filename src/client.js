@@ -140,10 +140,15 @@ socket.on('chunkFromServer', (data) => {
     if(data.freq != undefined){
       //let currentTime = audioContext.currentTime;
       //osc.frequency.setValueAtTime(data.freq, currentTime);
-      osc.frequency.setValueAtTime(data.freq, 0);
+      //osc.frequency.setValueAtTime(data.freq, 0);
+      let currentTime = audioContext.currentTime
+      osc.frequency.setTargetAtTime(freqVal,currentTime,0);
     }
   }
-  socket.emit('reqFromClient', "CLIENT")
+  if(videoMode.mode != "none") {
+    socket.emit('reqFromClient', "CLIENT")
+
+  }
   //}
 });
 
@@ -313,7 +318,7 @@ const initialize = () =>{
     //  navigator.mediaDevices.getUserMedia({
       mediaDevices.getUserMedia({
         //video: { facingMode: { exact: "environment" } }, audio: true
-        video: true, audio: true
+        video: true
       }).then((stream) =>{
         /*
         let mediastreamsource = void 0;
@@ -346,7 +351,7 @@ const initialize = () =>{
     } else {
       navigator.getUserMedia({
         //video: { facingMode: { exact: "environment" } }, audio: true
-        video: true, audio: true
+        video: true
         //video: true, audio: true
       }, (stream) =>{
         //video

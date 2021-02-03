@@ -148,7 +148,9 @@ socket.on('chunkFromServer', (data) => {
     if(data.freq != undefined){
       //let currentTime = audioContext.currentTime;
       //osc.frequency.setValueAtTime(data.freq, currentTime);
-      osc0.frequency.setValueAtTime(data.freq, 0);
+      //osc0.frequency.setValueAtTime(data.freq, 0);
+      let currentTime = audioContext.currentTime
+      osc0.frequency.setTargetAtTime(freqVal,currentTime,0);
     }
   }
   socket.emit('reqFromClient', "CLIENT")
@@ -350,7 +352,7 @@ const initialize = () =>{
     //  navigator.mediaDevices.getUserMedia({
       mediaDevices.getUserMedia({
         //video: { facingMode: { exact: "environment" } }, audio: true
-        video: true, audio: true
+        video: true
       }).then((stream) =>{
         /*
         let mediastreamsource = void 0;
@@ -383,7 +385,7 @@ const initialize = () =>{
     } else {
       navigator.getUserMedia({
         //video: { facingMode: { exact: "environment" } }, audio: true
-        video: true, audio: true
+        video: true
         //video: true, audio: true
       }, (stream) =>{
         //video

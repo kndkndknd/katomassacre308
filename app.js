@@ -178,7 +178,7 @@ io.sockets.on('connection',(socket)=>{
         io.emit("playReqFromServer")
         break;
       case "END":
-        io.emit("endFromServer")
+        io.emit("endFromServer", "終わります。お疲れさまでした")
         break;
       case "CTRL":
         socket.join("ctrl")
