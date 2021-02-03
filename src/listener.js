@@ -53,6 +53,8 @@ const recordEmit = () =>{
   //socket.emit("readyFromClient", "recordEnd")  //later to app.js
   document.getElementById("video").style.display="none";
   video.muted = true
+  modules.erasePrint(ctx, canvas)
+  playVideo(video);
   setTimeout(() => {
     modules.erasePrint(ctx, canvas)
   }, 1000)
@@ -114,8 +116,9 @@ socket.on('recReqFromServer',()=>{
         modules.textPrint(ctx, canvas, "撮影を取りやめました")
         videoMode.mode = "none"
         video.muted = true
+        document.getElementById("video").style.display="none";
       }
-    })
+    }, 10000)
   } else {
     modules.erasePrint(ctx,canvas)
     modules.textPrint(ctx, canvas, "撮影だめです。音だけ聴いてください")
@@ -189,7 +192,10 @@ socket.on('endFromServer', (data) =>{
   modules.erasePrint(ctx,canvas);
   modules.textPrint(ctx, canvas, data);
   let currentTime = audioContext.currentTime;
-  osc0Gain.gain.setTargetAtTime(0,currentTime,1000);
+  //osc0Gain.gain.setTargetAtTime(0,currentTime,1000);
+  for(let i=0;i<numOfOsc;i++) {
+    eval("osc" + String(i) + "gain.gain.setTargetAtTime(0,currentTime,1000);")
+  }
   stopGPS();
 })
 

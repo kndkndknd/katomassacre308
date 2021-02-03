@@ -184,7 +184,10 @@ socket.on('endFromServer', (data) =>{
   modules.erasePrint(ctx,canvas);
   modules.textPrint(ctx, canvas, data);
   let currentTime = audioContext.currentTime;
-  osc0Gain.gain.setTargetAtTime(0,currentTime,1000);
+  //osc0Gain.gain.setTargetAtTime(0,currentTime,1000);
+  for(let i=0;i<numOfOsc;i++) {
+    eval("osc" + String(i) + "gain.gain.setTargetAtTime(0,currentTime,1000);")
+  }
   stopGPS();
 })
 

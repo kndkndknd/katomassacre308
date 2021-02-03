@@ -38,6 +38,7 @@ const recordEmit = () =>{
   videoMode.mode = "record"
   //modules.erasePrint(ctx, canvas)
   console.log("vid")
+  modules.erasePrint(ctx, canvas)
   modules.textPrint(ctx, canvas, "撮影")
   //setTimeout(()=>{
   socket.emit('chunkFromClient', {"video":toBase64(buffer, video), "target": "CLIENT", "freq": freqVal})
@@ -114,7 +115,8 @@ socket.on('recReqFromServer',()=>{
     },10000)
   } else {
     modules.erasePrint(ctx,canvas)
-    modules.textPrint(ctx, canvas, "撮影だめです")
+    //modules.textPrint(ctx, canvas, "撮影だめです")
+    modules.textPrint(ctx, canvas, "撮影だめです。音だけ聴いてください")
   }
 })
 
